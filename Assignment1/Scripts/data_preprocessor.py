@@ -30,6 +30,8 @@ def impute_missing_values(data, strategy='mean'):
                 data[col].fillna(data[col].mean(), inplace=True)
             elif strategy == 'median':
                 data[col].fillna(data[col].median(), inplace=True)
+            elif strategy == 'mode':
+                data[col].fillna(data[col].mode()[0], inplace=True)
             
                 
     for col in categorical_cols:
