@@ -6,7 +6,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, accuracy_score
 
+
+
 # 1. Impute Missing Values
+
 def impute_missing_values(data, strategy='mean'):
     """
     Fill missing values in the dataset.
@@ -14,8 +17,28 @@ def impute_missing_values(data, strategy='mean'):
     :param strategy: str, imputation method ('mean', 'median', 'mode')
     :return: pandas DataFrame
     """
-    # TODO: Fill missing values based on the specified strategy
-    pass
+    data = data.copy()
+    missing_data = data.isnull().sum()
+    print(missing_data)
+
+    numerical_cols = data.select_dtypes(include=['int64', 'float64']).columns
+    categorical_cols = data.select_dtypes(include=['object']).columns
+        
+    for col in numerical_cols:
+        if data[col].isnull().sum() > 0:
+            if strategy == 'mean':
+                data[col].fillna(data[col].mean(), inplace=True)
+            elif strategy == 'median':
+                data[col].fillna(data[col].median(), inplace=True)
+            
+                
+    for col in categorical_cols:
+        if data[col].isnull().sum() > 0:
+            data[col].fillna(data[col].mode()[0], inplace=True)
+    
+    data.dropna(inplace=True)
+    return data
+    
 
 # 2. Remove Duplicates
 def remove_duplicates(data):
@@ -24,7 +47,7 @@ def remove_duplicates(data):
     :param data: pandas DataFrame
     :return: pandas DataFrame
     """
-    # TODO: Remove duplicate rows
+    return data.drop_duplicates()
     pass
 
 # 3. Normalize Numerical Data
@@ -33,6 +56,17 @@ def normalize_data(data,method='minmax'):
     :param data: pandas DataFrame
     :param method: str, normalization method ('minmax' (default) or 'standard')
     """
+    data = data.copy()
+    numerical_cols = data.select_dtypes(include=['int64', 'float64']).columns
+
+    if method == 'minmax':
+        scaler = MinMaxScaler()
+    elif method == 'standard':
+        scaler = StandardScaler()
+    else:
+        raise ValueError("Invalid method. Use 'minmax' or 'standard'.")
+    data[numerical_cols] = scaler.fit_transform(data[numerical_cols])
+    return data
     # TODO: Normalize numerical data using Min-Max or Standard scaling
     pass
 
@@ -43,12 +77,19 @@ def remove_redundant_features(data, threshold=0.9):
     :param threshold: float, correlation threshold
     :return: pandas DataFrame
     """
+    numeric_data = data.select_dtypes(include=['number'])
+    corr_matrix = numeric_data.corr().abs()
+    upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(np.bool))
+    to_drop = [column for column in upper.columns if any(upper[column] > threshold)]
+    data = data.drop(columns=to_drop)
+    return data
+
     # TODO: Remove redundant features based on the correlation threshold (HINT: you can use the corr() method)
     pass
 
-# ---------------------------------------------------
+# ----------------------------------------------------
 
-def simple_model(input_data, split_data=True, scale_data=False, print_report=False):
+def simple_model(input_data, split_data=True, scale_data=False, print_report=False, threshold = None):
     """
     A simple logistic regression model for target classification.
     Parameters:
@@ -77,6 +118,16 @@ def simple_model(input_data, split_data=True, scale_data=False, print_report=Fal
     target = input_data.copy()[input_data.columns[0]]
     features = input_data.copy()[input_data.columns[1:]]
 
+    if threshold is not None:
+        # Convert continuous target to binary (0/1)
+        target = (target > threshold).astype(int)
+    else:
+        # Ensure target is categorical
+        if target.dtypes != 'int' and target.dtypes != 'object':
+            raise ValueError(
+                "Target variable must be categorical or specify a threshold to binarize it."
+            )
+        
     # if the column is not numeric, encode it (one-hot)
     for col in features.columns:
         if features[col].dtype == 'object':
@@ -87,8 +138,8 @@ def simple_model(input_data, split_data=True, scale_data=False, print_report=Fal
 
     if scale_data:
         # scale the data
-        X_train = normalize_data(X_train)
-        X_test = normalize_data(X_test)
+        X_train = normalize_data(X_train, method='standard')
+        X_test = normalize_data(X_test, method='standard')
         
     # instantiate and fit the model
     log_reg = LogisticRegression(random_state=42, max_iter=100, solver='liblinear', penalty='l2', C=1.0)
